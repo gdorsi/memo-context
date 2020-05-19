@@ -8,6 +8,8 @@ import {
   useLayoutEffect,
 } from "react";
 
+const isStore = Symbol();
+
 function Store() {
   const listeners = new Set();
 
@@ -15,6 +17,7 @@ function Store() {
     s: subscribe,
     e: emit,
     v: undefined,
+    [isStore]: true,
   };
 
   function subscribe(callback) {
@@ -36,7 +39,6 @@ const actualValue = Symbol();
 
 function Tracker(initialValue) {
   const deps = new Set();
-  //TODO think about immutability
   const proxy = {};
 
   const instance = {
@@ -81,7 +83,6 @@ function Tracker(initialValue) {
   return instance;
 }
 
-//TODO Handle defaultValue as well
 export function createMemoContext(defaultValue) {
   const c = createContext(defaultValue);
 
@@ -112,21 +113,24 @@ export function createMemoContext(defaultValue) {
 export function useMemoContext(context) {
   const store = useContext(context.c);
 
-  const tracker = useMemo(() => Tracker(store.v), []);
+  const tracker = useMemo(() => store && store[isStore] && Tracker(store.v), [
+    store,
+  ]);
 
   const requestUpdate = useState()[1];
 
-  tracker.t(store.v);
+  tracker && tracker.t(store.v);
 
   useEffect(
     () =>
+      tracker &&
       store.s((value) => {
         if (tracker.t(value)) {
           requestUpdate(tracker.v);
         }
       }),
-    []
+    [tracker]
   );
 
-  return tracker.v;
+  return tracker ? tracker.v : store;
 }

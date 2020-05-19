@@ -90,7 +90,7 @@ describe("useMemoContext", () => {
 
     const Component = memo(() => {
       const value = useMemoContext(ctx);
-      [,rerender] = useState({});
+      [, rerender] = useState({});
 
       useEffect(() => {
         spy(value.bar);
@@ -102,9 +102,9 @@ describe("useMemoContext", () => {
     let update;
 
     function Provider() {
-        const [value, setValue] = useState({ foo: 1 });
+      const [value, setValue] = useState({ foo: 1 });
 
-        update = setValue;
+      update = setValue;
 
       return (
         <ctx.Provider value={value}>
@@ -155,6 +155,25 @@ describe("useMemoContext", () => {
     act(() => update({ foo: {} }));
 
     expect(values[0].foo).not.toBe(values[1].foo);
+  });
+
+  it("works without a Provider", () => {
+    const defaultValue = { foo: {} };
+    const ctx = createMemoContext(defaultValue);
+
+    const spy = jest.fn();
+
+    const Component = memo(() => {
+      const value = useMemoContext(ctx);
+
+      spy(value);
+
+      return null;
+    });
+
+    render(<Component></Component>);
+
+    expect(spy).toHaveBeenCalledWith(defaultValue);
   });
 });
 //TODO Consumer tests
