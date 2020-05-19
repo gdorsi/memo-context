@@ -8,8 +8,6 @@ import {
   useLayoutEffect,
 } from "react";
 
-const isStore = Symbol();
-
 function Store() {
   const listeners = new Set();
 
@@ -17,7 +15,6 @@ function Store() {
     s: subscribe,
     e: emit,
     v: undefined,
-    [isStore]: true,
   };
 
   function subscribe(callback) {
@@ -34,8 +31,6 @@ function Store() {
 
   return instance;
 }
-
-const actualValue = Symbol();
 
 function Tracker(initialValue) {
   const deps = new Set();
@@ -90,6 +85,7 @@ export function createMemoContext(defaultValue) {
     c,
     Provider,
     Consumer,
+    d: defaultValue,
   };
 
   function Provider({ value, children }) {
@@ -113,9 +109,10 @@ export function createMemoContext(defaultValue) {
 export function useMemoContext(context) {
   const store = useContext(context.c);
 
-  const tracker = useMemo(() => store && store[isStore] && Tracker(store.v), [
-    store,
-  ]);
+  const tracker = useMemo(
+    () => (store !== context.d ? Tracker(store.v) : undefined),
+    [store]
+  );
 
   const requestUpdate = useState()[1];
 

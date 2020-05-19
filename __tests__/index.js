@@ -157,7 +157,7 @@ describe("useMemoContext", () => {
     expect(values[0].foo).not.toBe(values[1].foo);
   });
 
-  it("works without a Provider", () => {
+  fit("works without a Provider", () => {
     const defaultValue = { foo: {} };
     const ctx = createMemoContext(defaultValue);
 
