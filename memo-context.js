@@ -8,14 +8,42 @@ import {
   useLayoutEffect,
 } from "react";
 
+const actualDeps = Symbol();
+
 function Store() {
   const listeners = new Set();
+
+  let proxy = {};
+  let newKeys = false;
+  let changed = false;
 
   const instance = {
     s: subscribe,
     e: emit,
+    u: update,
+    p: proxy,
     v: undefined,
   };
+
+  function update(nextValue) {
+    if (nextValue === instance.v) return;
+
+    changed = true;
+
+    for (const key in nextValue) {
+      if (!(key in proxy)) {
+        Object.defineProperty(proxy, key, {
+          get: function () {
+            this[actualDeps].add(key);
+            return this[actualValue][key];
+          },
+        });
+        newKeys = true;
+      }
+    }
+
+    instance.v = nextValue;
+  }
 
   function subscribe(callback) {
     listeners.add(callback);
@@ -24,56 +52,49 @@ function Store() {
   }
 
   function emit() {
+    if (!changed) return;
+
     listeners.forEach((callback) => {
-      callback(instance.v);
+      callback(newKeys);
     });
+
+    newKeys = false;
+    changed = false;
   }
 
   return instance;
 }
 
-function Tracker(initialValue) {
+const actualValue = Symbol();
+
+function Tracker() {
   const deps = new Set();
-  const proxy = {};
+
+  let prevValue;
 
   const instance = {
-    v: proxy,
+    v: prevValue,
     t: track,
   };
 
-  function track(nextValue) {
-    const value = instance.v[actualValue];
-
-    if (value === nextValue) return false;
+  function track(value, proxy) {
+    if (value === prevValue) return false;
 
     let changed = false;
 
-    for (const key in nextValue) {
-      if (!(key in proxy)) {
-        Object.defineProperty(proxy, key, {
-          get: function () {
-            deps.add(key);
-            return this[actualValue][key];
-          },
-        });
-        changed = true;
-      }
-    }
-
-    if (!changed) {
-      deps.forEach((key) => {
-        if (!changed) changed = value[key] !== nextValue[key];
-      });
-    }
+    deps.forEach((key) => {
+      if (!changed) changed = value[key] !== prevValue[key];
+    });
 
     //Creates a new reference to make equality checks work
     instance.v = Object.create(proxy);
-    instance.v[actualValue] = nextValue;
+    instance.v[actualValue] = value;
+    instance.v[actualDeps] = deps;
+
+    prevValue = value;
 
     return changed;
   }
-
-  track(initialValue);
 
   return instance;
 }
@@ -91,10 +112,8 @@ export function createMemoContext(defaultValue) {
   function Provider({ value, children }) {
     const store = useMemo(Store, []);
 
-    store.v = value;
-    useLayoutEffect(() => {
-      store.e();
-    });
+    store.u(value);
+    useLayoutEffect(store.e);
 
     return createElement(c.Provider, { value: store }, children);
   }
@@ -109,20 +128,19 @@ export function createMemoContext(defaultValue) {
 export function useMemoContext(context) {
   const store = useContext(context.c);
 
-  const tracker = useMemo(
-    () => (store !== context.d ? Tracker(store.v) : undefined),
-    [store]
-  );
+  const tracker = useMemo(() => (store !== context.d ? Tracker() : undefined), [
+    store,
+  ]);
 
   const requestUpdate = useState()[1];
 
-  tracker && tracker.t(store.v);
+  tracker && tracker.t(store.v, store.p);
 
   useEffect(
     () =>
       tracker &&
-      store.s((value) => {
-        if (tracker.t(value)) {
+      store.s((forceRender) => {
+        if (tracker.t(store.v, store.p) || forceRender) {
           requestUpdate(tracker.v);
         }
       }),

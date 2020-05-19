@@ -1,5 +1,5 @@
 import { createMemoContext, useMemoContext } from "../memo-context";
-import React, { useState, useEffect, useLayoutEffect, memo } from "react";
+import React, { useState, useEffect, memo } from "react";
 import { render } from "@testing-library/react";
 import { act } from "react-dom/test-utils";
 
@@ -157,7 +157,7 @@ describe("useMemoContext", () => {
     expect(values[0].foo).not.toBe(values[1].foo);
   });
 
-  fit("works without a Provider", () => {
+  it("works without a Provider", () => {
     const defaultValue = { foo: {} };
     const ctx = createMemoContext(defaultValue);
 
