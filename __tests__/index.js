@@ -4,7 +4,7 @@ import { render } from "@testing-library/react";
 import { act } from "react-dom/test-utils";
 
 describe("useMemoContext", () => {
-  it("should update only the component that depends to the changed value", () => {
+  it("updates only the component that depends to the changed value", () => {
     const ctx = createMemoContext();
 
     const fooSpy = jest.fn();
@@ -48,7 +48,7 @@ describe("useMemoContext", () => {
     expect(barSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("should skip updates when the component has already been rendered with the last value", () => {
+  it("skips updates when the component has already been rendered by reiceving new props", () => {
     const ctx = createMemoContext();
 
     const spy = jest.fn();
@@ -82,27 +82,27 @@ describe("useMemoContext", () => {
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
-  it("the value ref should change only when the source value ref is changed", () => {
+  it("updates the returned reference only when the context value is changed", () => {
     const ctx = createMemoContext();
 
     const spy = jest.fn();
+    let rerender;
 
-    const Component = () => {
+    const Component = memo(() => {
       const value = useMemoContext(ctx);
+      [,rerender] = useState({});
 
       useEffect(() => {
         spy(value.bar);
       }, [value]);
 
       return null;
-    };
+    });
 
     let update;
-    let rerender;
 
     function Provider() {
         const [value, setValue] = useState({ foo: 1 });
-        [,rerender] = useState(1);
 
         update = setValue;
 
@@ -115,9 +115,47 @@ describe("useMemoContext", () => {
 
     render(<Provider></Provider>);
 
-    act(() => rerender(2));
+    act(() => rerender({}));
     act(() => update({ foo: 1 }));
+    act(() => rerender({}));
 
     expect(spy).toHaveBeenCalledTimes(2);
   });
+
+  it("preserves the referential transparency", () => {
+    const ctx = createMemoContext();
+
+    const values = [];
+
+    const Component = memo(() => {
+      const value = useMemoContext(ctx);
+
+      value.foo; //Subscribes to foo
+      values.push(value);
+
+      return null;
+    });
+
+    let update;
+
+    function Provider() {
+      const [value, setValue] = useState({ foo: {} });
+
+      update = setValue;
+
+      return (
+        <ctx.Provider value={value}>
+          <Component></Component>
+        </ctx.Provider>
+      );
+    }
+
+    render(<Provider></Provider>);
+
+    act(() => update({ foo: {} }));
+
+    expect(values[0].foo).not.toBe(values[1].foo);
+  });
 });
+//TODO Consumer tests
+//TODO defaultValue beahvoir

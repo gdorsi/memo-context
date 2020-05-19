@@ -11,7 +11,7 @@ import {
 function Store() {
   const listeners = new Set();
 
-  const api = {
+  const instance = {
     s: subscribe,
     e: emit,
     v: undefined,
@@ -25,25 +25,28 @@ function Store() {
 
   function emit() {
     listeners.forEach((callback) => {
-      callback(api.v);
+      callback(instance.v);
     });
   }
 
-  return api;
+  return instance;
 }
+
+const actualValue = Symbol();
 
 function Tracker(initialValue) {
   const deps = new Set();
   //TODO think about immutability
   const proxy = {};
-  let value;
 
-  const api = {
+  const instance = {
     v: proxy,
     t: track,
   };
 
   function track(nextValue) {
+    const value = instance.v[actualValue];
+
     if (value === nextValue) return false;
 
     let changed = false;
@@ -51,9 +54,9 @@ function Tracker(initialValue) {
     for (const key in nextValue) {
       if (!(key in proxy)) {
         Object.defineProperty(proxy, key, {
-          get: () => {
+          get: function () {
             deps.add(key);
-            return value[key];
+            return this[actualValue][key];
           },
         });
         changed = true;
@@ -67,21 +70,26 @@ function Tracker(initialValue) {
     }
 
     //Creates a new reference to make equality checks work
-    api.v = Object.create(proxy);
-
-    value = nextValue;
+    instance.v = Object.create(proxy);
+    instance.v[actualValue] = nextValue;
 
     return changed;
   }
 
   track(initialValue);
 
-  return api;
+  return instance;
 }
 
 //TODO Handle defaultValue as well
 export function createMemoContext(defaultValue) {
   const c = createContext(defaultValue);
+
+  const instance = {
+    c,
+    Provider,
+    Consumer,
+  };
 
   function Provider({ value, children }) {
     const store = useMemo(Store, []);
@@ -94,10 +102,11 @@ export function createMemoContext(defaultValue) {
     return createElement(c.Provider, { value: store }, children);
   }
 
-  return {
-    c,
-    Provider,
-  };
+  function Consumer({ children }) {
+    return children(useMemoContext(instance));
+  }
+
+  return instance;
 }
 
 export function useMemoContext(context) {
