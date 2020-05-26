@@ -1,3 +1,10 @@
+<a href="https://www.npmjs.org/package/memo-context">
+  <img src="https://img.shields.io/npm/v/memo-context.svg?style=flat" alt="npm">
+</a>
+<a href="https://unpkg.com/memo-context">
+  <img src="https://badgen.net/bundlephobia/minzip/memo-context" alt="minzipped size">
+</a>
+
 # Memo Context
 
 The memo wrapper for React Context API
